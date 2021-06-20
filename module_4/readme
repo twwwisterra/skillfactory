@@ -1,0 +1,184 @@
+#####################################
+4.1
+SELECT a.city
+FROM dst_project.airports AS a
+GROUP BY a.city
+HAVING count(a.*)>=2
+
+#####################################
+4.2
+SELECT count(DISTINCT f.status)
+FROM dst_project.flights AS f
+
+SELECT count(f.*)
+FROM dst_project.flights AS f
+WHERE f.status = 'Departed'
+
+SELECT count(s.seat_no)
+FROM dst_project.seats AS s
+WHERE s.aircraft_code = '773'
+
+SELECT count(f.*)
+FROM dst_project.flights AS f
+WHERE f.actual_arrival BETWEEN '2017-04-01 00:00:00' AND '2017-09-01 23:59:59'
+  AND f.status = 'Arrived'
+
+#####################################
+4.3
+SELECT count(f.*)
+FROM dst_project.flights AS f
+WHERE f.status = 'Cancelled'
+
+SELECT sel.model_type,
+       count(sel.*)
+FROM
+  (SELECT CASE
+              WHEN f.model LIKE '%Boeing%' THEN 'Boeing'
+              WHEN f.model LIKE '%Sukhoi Superjet%' THEN 'Sukhoi Superjet'
+              WHEN f.model LIKE '%Airbus%' THEN 'Airbus'
+              ELSE NULL
+          END AS model_type
+   FROM dst_project.aircrafts AS f) AS sel
+GROUP BY sel.model_type
+
+SELECT sel.continent,
+       count(sel.*)
+FROM
+  (SELECT CASE
+              WHEN a.timezone LIKE '%Asia%' THEN 'Asia'
+              WHEN a.timezone LIKE '%Europe%' THEN 'Europe'
+              ELSE 'Other'
+          END AS continent
+   FROM dst_project.airports AS a) AS sel
+GROUP BY sel.continent
+
+SELECT f.flight_id,
+       (f.actual_arrival - f.scheduled_arrival) AS delta
+FROM dst_project.flights AS f
+WHERE f.status = 'Arrived'
+ORDER BY delta DESC
+LIMIT 1
+
+#####################################
+4.4
+SELECT min(f.scheduled_departure)
+FROM dst_project.flights AS f
+
+SELECT (DATE_PART('hour', f.scheduled_arrival - f.scheduled_departure)*60 +DATE_PART('minute', f.scheduled_arrival - f.scheduled_departure)) AS flight_min
+FROM dst_project.flights AS f
+ORDER BY flight_min DESC
+LIMIT 1
+
+SELECT
+avg(DATE_PART('day', f.scheduled_arrival - f.scheduled_departure)*60*24
++DATE_PART('hour', f.scheduled_arrival - f.scheduled_departure)*60
++DATE_PART('minute', f.scheduled_arrival - f.scheduled_departure)) AS flight_min,
+f.departure_airport,
+f.arrival_airport
+FROM dst_project.flights AS f
+group by f.departure_airport, f.arrival_airport order by flight_min desc
+
+SELECT avg(DATE_PART('hour', f.scheduled_arrival - f.scheduled_departure)*60 +DATE_PART('minute', f.scheduled_arrival - f.scheduled_departure)) AS flight_min
+FROM dst_project.flights AS f
+
+#####################################
+4.4
+SELECT s.fare_conditions,
+       count(*)
+FROM dst_project.seats AS s
+GROUP BY s.fare_conditions
+ORDER BY count(*) DESC
+
+SELECT min(b.total_amount)
+FROM dst_project.bookings AS b
+
+SELECT b.seat_no
+FROM dst_project.tickets AS t
+JOIN dst_project.boarding_passes AS b ON t.ticket_no = b.ticket_no
+WHERE t.passenger_id = '4313 788533'
+
+#####################################
+5.1
+SELECT count(f.*)
+FROM dst_project.flights AS f
+JOIN dst_project.airports AS a ON f.arrival_airport = a.airport_code
+WHERE a.city = 'Anapa'
+  AND f.actual_arrival BETWEEN '2017-01-01 00:00:00' AND '2018-12-31 23:59:59'
+  AND f.status = 'Arrived'
+
+SELECT count(f.*)
+FROM dst_project.flights AS f
+JOIN dst_project.airports AS a ON f.departure_airport = a.airport_code
+WHERE a.city = 'Anapa'
+  AND f.actual_arrival BETWEEN '2017-01-01 00:00:00' AND '2017-02-28 23:59:59'
+  AND f.status = 'Arrived'
+
+SELECT count(*)
+FROM dst_project.flights AS f
+JOIN dst_project.airports AS a ON f.arrival_airport = a.airport_code
+WHERE f.departure_airport = 'AAQ'
+and a.city != 'Moscow'
+
+SELECT p.model
+FROM dst_project.flights AS f
+JOIN dst_project.airports AS a ON f.departure_airport = a.airport_code
+JOIN dst_project.seats AS s ON f.aircraft_code = s.aircraft_code
+JOIN dst_project.aircrafts AS p ON f.aircraft_code = p.aircraft_code
+WHERE a.city = 'Anapa'
+GROUP BY p.model
+ORDER BY count(DISTINCT s.seat_no) DESC
+LIMIT 1
+
+
+#####################################
+6
+
+источники:
+http://newsruss.ru/doc/index.php/Расход_топлива_у_самолётов
+https://favt.gov.ru/public/materials//1/e/e/7/b/1ee7bb90c65c5bd52fdc6ab681f77e5c.pdf
+http://www.bato.aero/index.html#price
+
+
+расчет стоимости топлива химой 2017 г.
+40494 + 18% = 47782 руб. (за 1000 кг.)
+
+
+данные по самолетам:
+Boeing 737-300:
+130 мест
+2400 кг/час = 114 676 руб/час = 1911.2 руб/мин
+
+Sukhoi Superjet-100:
+97 мест
+1700 кг/час = 81229 руб/час = 1353.8 руб/мин
+
+
+итоговый запрос:
+
+SELECT f.flight_id,
+       max(f.scheduled_departure) AS scheduled_departure,
+       'Anapa' AS departure_city,
+       max(a.city) AS arrival_city,
+       max(f.aircraft_code) AS aircraft_code,
+       count(t.ticket_no) AS tickets_sold,
+       CASE
+           WHEN f.aircraft_code = '733' THEN 130 - count(t.ticket_no)
+           WHEN f.aircraft_code = 'SU9' THEN 97 - count(t.ticket_no)
+       END AS empty_seats,
+       avg(DATE_PART('hour', f.scheduled_arrival - f.scheduled_departure)*60 +DATE_PART('minute', f.scheduled_arrival - f.scheduled_departure)) AS flight_time_min,
+       CASE
+           WHEN f.aircraft_code = '733' THEN avg(DATE_PART('hour', f.scheduled_arrival - f.scheduled_departure)*60 +DATE_PART('minute', f.scheduled_arrival - f.scheduled_departure)) * 1911.2
+           WHEN f.aircraft_code = 'SU9' THEN avg(DATE_PART('hour', f.scheduled_arrival - f.scheduled_departure)*60 +DATE_PART('minute', f.scheduled_arrival - f.scheduled_departure)) * 1353.8
+       END AS fuel_cost,
+
+       sum(t.amount) AS revenue
+FROM dst_project.flights AS f
+JOIN dst_project.ticket_flights AS t ON f.flight_id = t.flight_id
+JOIN dst_project.airports AS a ON f.arrival_airport = a.airport_code
+WHERE f.departure_airport = 'AAQ'
+  AND (date_trunc('month', f.scheduled_departure) in ('2017-01-01',
+                                                      '2017-02-01',
+                                                      '2017-12-01'))
+  AND f.status not in ('Cancelled')
+GROUP BY f.flight_id
+ORDER BY scheduled_departure
