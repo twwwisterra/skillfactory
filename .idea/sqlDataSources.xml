@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SqlDataSourceStorage">
+    <option name="dataSources">
+      <list>
+        <State>
+          <option name="id" value="057eb6b1-baef-4065-aa9f-bdf07a33cff6" />
+          <option name="name" value="main_task" />
+          <option name="urls">
+            <array>
+              <option value="file://$PROJECT_DIR$/module_3/skillfactory_rds/main_task.db" />
+            </array>
+          </option>
+        </State>
+      </list>
+    </option>
+  </component>
+</project>
